@@ -1,14 +1,23 @@
 import React from 'react';
-import { Plus, Check, Info, ArrowRight } from 'lucide-react';
+import { Activity, Info, Plus, Waves } from 'lucide-react';
+
+function confidencePercent(prediction) {
+  if (!prediction) {
+    return '0.0';
+  }
+
+  return (prediction.confidence * 100).toFixed(1);
+}
 
 export default function RecognitionSection({
   prediction,
   onAddToSentence,
-  isAnalyzing
+  isAnalyzing,
+  streamStatus,
+  frameCount,
+  connectionMessage,
 }) {
-  const confidencePercent = prediction
-    ? (prediction.confidence * 100).toFixed(1)
-    : '0';
+  const percent = confidencePercent(prediction);
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -16,26 +25,30 @@ export default function RecognitionSection({
         <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600">
           Recognition
         </label>
-        {prediction && (
-          <span className="text-[11px] font-mono text-zinc-500 bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded">
-            Inference: {prediction.inferenceTimeMs}ms
-          </span>
-        )}
+        <span className="text-[11px] font-mono text-zinc-500 bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded">
+          Frames processed: {frameCount}
+        </span>
       </div>
 
       <div className="flex-1 rounded-md border border-zinc-300 bg-[#FCFCFD] p-5 flex flex-col justify-between min-h-[320px]">
-        {isAnalyzing ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-2 text-zinc-500">
-            <div className="w-5 h-5 border-2 border-zinc-700 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-xs font-mono">Running neural network classification...</p>
+        {isAnalyzing && !prediction ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-zinc-500 text-center">
+            <div className="w-10 h-10 rounded-full border border-zinc-200 bg-zinc-100 flex items-center justify-center">
+              <Waves className="w-5 h-5 text-zinc-700 animate-pulse" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-zinc-800">
+                Listening for a stable sign
+              </p>
+              <p className="text-xs font-mono">{connectionMessage}</p>
+            </div>
           </div>
         ) : prediction ? (
           <div className="flex flex-col justify-between h-full gap-6">
-            {/* Top Display: Detected Sign & Primary Confidence */}
             <div className="space-y-4">
               <div className="space-y-1">
                 <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">
-                  Predicted Sign Class
+                  Smoothed Prediction
                 </span>
                 <div className="flex items-baseline justify-between gap-2 border-b border-zinc-200 pb-3">
                   <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-900 font-mono">
@@ -43,7 +56,7 @@ export default function RecognitionSection({
                   </h2>
                   <div className="text-right">
                     <span className="text-xl font-bold font-mono text-zinc-800">
-                      {confidencePercent}%
+                      {percent}%
                     </span>
                     <span className="block text-[10px] text-zinc-500 uppercase tracking-wider">
                       Confidence
@@ -52,43 +65,33 @@ export default function RecognitionSection({
                 </div>
               </div>
 
-              {/* Minimal Visual Confidence Bar */}
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs text-zinc-600">
-                  <span>Model Certainty</span>
-                  <span className="font-mono text-zinc-700">{prediction.confidence}</span>
+                  <span>Temporal confidence</span>
+                  <span className="font-mono text-zinc-700">
+                    {prediction.confidence.toFixed(3)}
+                  </span>
                 </div>
                 <div className="w-full bg-zinc-200 h-2 rounded-full overflow-hidden">
                   <div
                     className="bg-zinc-800 h-full transition-all duration-300 ease-out rounded-full"
-                    style={{ width: `${confidencePercent}%` }}
+                    style={{ width: `${percent}%` }}
                   />
                 </div>
               </div>
 
-              {/* Class Probability Distribution Breakdown */}
-              {prediction.topPredictions && prediction.topPredictions.length > 0 && (
-                <div className="space-y-2 pt-2">
-                  <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-                    Top Probabilities
-                  </span>
-                  <div className="space-y-1.5 bg-zinc-50 border border-zinc-200 p-2.5 rounded text-xs">
-                    {prediction.topPredictions.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between">
-                        <span className={`font-mono ${idx === 0 ? 'font-semibold text-zinc-900' : 'text-zinc-600'}`}>
-                          {item.label}
-                        </span>
-                        <span className="font-mono text-zinc-600">
-                          {(item.confidence * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+              <div className="rounded border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600">
+                <div className="flex items-center gap-2 text-zinc-800 font-medium">
+                  <Activity className="w-4 h-4" />
+                  <span>Realtime backend pipeline active</span>
                 </div>
-              )}
+                <p className="mt-2 leading-relaxed">
+                  Predictions only appear after the backend has a full landmark
+                  window and the same label survives the smoothing gate.
+                </p>
+              </div>
             </div>
 
-            {/* Action Area */}
             <div className="pt-4 border-t border-zinc-200">
               <button
                 type="button"
@@ -101,19 +104,26 @@ export default function RecognitionSection({
             </div>
           </div>
         ) : (
-          /* Empty State */
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6 gap-3">
             <div className="w-10 h-10 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-400">
               <Info className="w-5 h-5 text-zinc-500" />
             </div>
             <div className="space-y-1 max-w-xs">
-              <h3 className="text-sm font-semibold text-zinc-800">No Prediction Available</h3>
+              <h3 className="text-sm font-semibold text-zinc-800">
+                No Prediction Yet
+              </h3>
               <p className="text-xs text-zinc-500 leading-relaxed">
-                Upload a sign language frame or click one of the quick test sample signs on the left to view model output.
+                Start the camera stream to send frames to the backend and wait
+                for a confident, repeated prediction.
               </p>
             </div>
           </div>
         )}
+      </div>
+
+      <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600">
+        <span className="font-medium text-zinc-800">Connection state:</span>{' '}
+        <span className="font-mono">{streamStatus}</span>
       </div>
     </div>
   );
