@@ -1,16 +1,81 @@
-# React + Vite
+# SignBridge
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A computer vision and machine learning system that recognizes sign language gestures and converts them into text.
 
-Currently, two official plugins are available:
+## Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+SignBridge takes an image containing a sign language gesture, processes it using computer vision techniques, and uses a trained machine learning model to identify the corresponding sign.
 
-## React Compiler
+Recognized signs can be combined into sentences and displayed through the application interface.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features
 
-## Expanding the Oxlint configuration
+* Sign language gesture recognition
+* Image upload
+* ML-based sign classification
+* Prediction confidence
+* Sign-to-text conversion
+* Sentence construction
+* Minimal and accessible interface
+* Future text-to-speech support
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Technology Stack
+
+* React
+* Vite
+* Tailwind CSS
+* Python
+* OpenCV
+* Machine Learning / Deep Learning
+
+## Workflow
+
+```text
+Input Image
+     ↓
+Image Preprocessing
+     ↓
+Hand / Gesture Detection
+     ↓
+Feature Extraction
+     ↓
+ML Classification
+     ↓
+Recognized Sign
+     ↓
+Text Output
+```
+
+## Project Structure
+
+```text
+SignBridge/
+├── frontend/
+│   ├── src/
+│   ├── public/
+│   └── package.json
+│
+├── backend/
+│   └── ...
+│
+├── model/
+│   └── ...
+│
+└── README.md
+```
+
+## Running the Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## Project Status
+
+The frontend is currently under development. The machine learning model and backend API will be integrated as development progresses.
+
+## Goal
+
+SignBridge aims to provide a simple computer vision-based communication system that converts sign language into readable text, helping bridge communication between sign language users and people who do not understand sign language.
