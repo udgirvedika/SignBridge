@@ -15,6 +15,14 @@ pip install -r requirements.txt
 Set values in `.env` if you want to change the host, port, smoothing, or face
 landmark toggle.
 
+To use a trained WLASL model, point the backend at the saved run directory:
+
+```bash
+SIGNBRIDGE_MODEL_DIR=../ml/runs/latest
+SIGNBRIDGE_WINDOW_SIZE=30
+SIGNBRIDGE_INCLUDE_FACE_LANDMARKS=false
+```
+
 Start the backend from the `backend` folder:
 
 ```bash
@@ -79,7 +87,12 @@ npm run dev
   temporal smoothing.
 - `landmarks.py` owns MediaPipe Holistic setup, frame decoding, and fixed-length
   landmark vector extraction.
-- `model.py` contains a stub `predict()` function you can replace with your
-  trained model.
+- `preprocessing.py` owns missing-frame interpolation, temporal resampling, and
+  normalization. The ML scripts and live backend both use this file.
+- `model.py` loads `SIGNBRIDGE_MODEL_DIR/best_model.pt` plus
+  `model_config.json` and returns `unknown` until a trained checkpoint exists.
 - `test_client.py` streams webcam frames directly to the backend at roughly
   12 FPS so you can test the pipeline without the frontend.
+
+See `../ml/README.md` for WLASL preprocessing, training, evaluation, and model
+artifact commands.
