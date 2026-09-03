@@ -23,7 +23,6 @@ def load_env_file(env_path: Path) -> None:
         line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
-
         key, value = line.split("=", 1)
         os.environ[key.strip()] = value.strip()
 
