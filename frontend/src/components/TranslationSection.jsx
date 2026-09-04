@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Volume2, RotateCcw, Trash2, Copy, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Volume2, VolumeX, RotateCcw, Trash2, Copy, Check, Languages } from 'lucide-react';
+import { useAccessibility } from '../context/AccessibilityContext';
 
 export default function TranslationSection({
   sentenceWords,
@@ -8,13 +9,66 @@ export default function TranslationSection({
   onSpeak
 }) {
   const [copied, setCopied] = useState(false);
+  const [translatedText, setTranslatedText] = useState('');
+  const [isTranslating, setIsTranslating] = useState(false);
+
+  const {
+    language,
+    translateText,
+    speakText,
+    stopSpeaking,
+    isSpeaking,
+    supportedLanguages,
+  } = useAccessibility();
+
   const fullSentence = sentenceWords.join(' ');
+  const currentLang = supportedLanguages.find((l) => l.code === language);
+
+  // Auto-translate when sentence or language changes
+  useEffect(() => {
+    let cancelled = false;
+
+    async function doTranslate() {
+      if (!fullSentence.trim() || language === 'en') {
+        setTranslatedText('');
+        return;
+      }
+
+      setIsTranslating(true);
+      try {
+        const result = await translateText(fullSentence, language);
+        if (!cancelled) {
+          setTranslatedText(result);
+        }
+      } catch {
+        if (!cancelled) setTranslatedText('');
+      } finally {
+        if (!cancelled) setIsTranslating(false);
+      }
+    }
+
+    doTranslate();
+    return () => { cancelled = true; };
+  }, [fullSentence, language, translateText]);
 
   const handleCopy = () => {
     if (!fullSentence) return;
-    navigator.clipboard.writeText(fullSentence);
+    const textToCopy = translatedText || fullSentence;
+    navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleReadAloud = () => {
+    if (isSpeaking) {
+      stopSpeaking();
+      return;
+    }
+
+    const textToSpeak = translatedText || fullSentence;
+    if (!textToSpeak.trim()) return;
+
+    speakText(textToSpeak, language);
   };
 
   return (
@@ -23,12 +77,20 @@ export default function TranslationSection({
         <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600">
           Translated Text
         </label>
-        <span className="text-xs text-zinc-500 font-mono">
-          {sentenceWords.length} {sentenceWords.length === 1 ? 'word' : 'words'}
-        </span>
+        <div className="flex items-center gap-2">
+          {language !== 'en' && (
+            <span className="translation-badge">
+              <Languages className="w-3 h-3" />
+              {currentLang?.flag} {currentLang?.name}
+            </span>
+          )}
+          <span className="text-xs text-zinc-500 font-mono">
+            {sentenceWords.length} {sentenceWords.length === 1 ? 'word' : 'words'}
+          </span>
+        </div>
       </div>
 
-      {/* Output Container */}
+      {/* Original Output Container */}
       <div className="min-h-[72px] p-4 bg-zinc-50 border border-zinc-200 rounded flex items-center justify-between gap-4">
         {sentenceWords.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
@@ -48,20 +110,73 @@ export default function TranslationSection({
         )}
       </div>
 
+      {/* Translated Output (shown when language is not English) */}
+      {language !== 'en' && sentenceWords.length > 0 && (
+        <div className="min-h-[48px] p-4 border border-zinc-200 rounded relative overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(139,92,246,0.04) 100%)',
+          }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Languages className="w-3.5 h-3.5 text-zinc-500" style={{ color: 'var(--accent-solid)' }} />
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--accent-solid)' }}>
+                  {currentLang?.name} Translation
+                </span>
+              </div>
+              {isTranslating ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border-color)', borderTopColor: 'var(--accent-solid)' }} />
+                  <span className="text-xs text-zinc-500">Translating...</span>
+                </div>
+              ) : (
+                <p className="text-sm font-medium text-zinc-800 leading-relaxed">
+                  {translatedText}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sentence Action Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-200">
         <div className="flex items-center gap-2">
-          {/* Speak Button - Visually prominent solid button */}
+          {/* Read Aloud Button - Premium accent gradient */}
           <button
             type="button"
-            onClick={() => onSpeak(fullSentence)}
+            onClick={handleReadAloud}
             disabled={sentenceWords.length === 0}
-            className={`px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 text-xs font-medium rounded flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-none`}
-            title="Read sentence aloud via Text-to-Speech"
+            className={`read-aloud-btn ${isSpeaking ? 'speaking-indicator' : ''}`}
+            title={isSpeaking ? 'Stop reading aloud' : 'Read sentence aloud via Text-to-Speech'}
           >
-            <Volume2 className="w-4 h-4" />
-            <span>Speak</span>
+            {isSpeaking ? (
+              <>
+                <VolumeX className="read-aloud-btn-icon" />
+                <span>Stop</span>
+              </>
+            ) : (
+              <>
+                <Volume2 className="read-aloud-btn-icon" />
+                <span>Read Aloud</span>
+              </>
+            )}
           </button>
+
+          {/* Speak Original (only when translated) */}
+          {language !== 'en' && translatedText && (
+            <button
+              type="button"
+              onClick={() => onSpeak(fullSentence)}
+              disabled={sentenceWords.length === 0}
+              className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 text-xs font-medium rounded flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-none"
+              title="Speak original English text"
+            >
+              <Volume2 className="w-4 h-4" />
+              <span>Speak English</span>
+            </button>
+          )}
 
           {/* Copy Button */}
           <button

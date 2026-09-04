@@ -144,7 +144,7 @@ async def sign_stream(websocket: WebSocket) -> None:
 
                 prediction_payload = {"prediction": None, "confidence": 0.0}
 
-                if len(session.landmark_window) == WINDOW_SIZE:
+                if len(session.landmark_window) >= min(WINDOW_SIZE, 10):
                     landmark_sequence = np.array(
                         session.landmark_window, dtype=np.float32
                     )
@@ -167,14 +167,20 @@ async def sign_stream(websocket: WebSocket) -> None:
                     "WebSocket %s sent a payload without a frame key",
                     session.session_id,
                 )
-                await websocket.send_json({"prediction": None, "confidence": 0.0})
+                try:
+                    await websocket.send_json({"prediction": None, "confidence": 0.0})
+                except Exception:
+                    break
             except Exception as exc:
                 logger.exception(
                     "Frame processing failed for session %s: %s",
                     session.session_id,
                     exc,
                 )
-                await websocket.send_json({"prediction": None, "confidence": 0.0})
+                try:
+                    await websocket.send_json({"prediction": None, "confidence": 0.0})
+                except Exception:
+                    break
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected: %s", session.session_id)
     finally:

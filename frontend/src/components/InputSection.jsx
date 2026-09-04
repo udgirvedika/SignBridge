@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Camera, CircleStop, ScanLine, X } from 'lucide-react';
+import { Camera, CircleStop, ScanLine, X, AlertCircle } from 'lucide-react';
 
 function statusTone(streamStatus) {
   if (streamStatus === 'streaming') {
@@ -70,8 +70,30 @@ export default function InputSection({
           }`}
         />
 
-        {!currentInput && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-[radial-gradient(circle_at_top,_rgba(24,24,27,0.06),_transparent_55%),linear-gradient(180deg,_#fcfcfd_0%,_#f4f4f5_100%)]">
+        {!currentInput && streamStatus === 'error' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 camera-placeholder-bg">
+            <div className="w-12 h-12 rounded-full bg-rose-100 border border-rose-200 flex items-center justify-center mb-4">
+              <AlertCircle className="w-6 h-6 text-rose-600" />
+            </div>
+            <p className="text-sm font-semibold text-rose-700 mb-1">
+              Camera Access Denied / Blocked
+            </p>
+            <p className="text-xs text-zinc-600 max-w-sm leading-relaxed mb-3">
+              {connectionMessage || 'The browser was denied permission to use your webcam.'}
+            </p>
+            <div className="text-[11px] bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-lg p-2.5 max-w-sm text-left text-zinc-600 dark:text-zinc-300">
+              <p className="font-semibold mb-1 text-zinc-800 dark:text-zinc-100">To fix this in Chrome / Edge:</p>
+              <ol className="list-decimal list-inside space-y-0.5">
+                <li>Click the <strong>padlock 🔒 / tune</strong> icon in the address bar (left of URL).</li>
+                <li>Set <strong>Camera</strong> to <strong>Allow</strong>.</li>
+                <li>Click <strong>Start Camera</strong> again.</li>
+              </ol>
+            </div>
+          </div>
+        )}
+
+        {!currentInput && streamStatus !== 'error' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 camera-placeholder-bg">
             <div className="w-12 h-12 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center mb-4">
               <ScanLine className="w-6 h-6 text-zinc-700" />
             </div>
