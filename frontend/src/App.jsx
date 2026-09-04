@@ -4,7 +4,9 @@ import InputSection from './components/InputSection';
 import RecognitionSection from './components/RecognitionSection';
 import TranslationSection from './components/TranslationSection';
 import StatusBar from './components/StatusBar';
+import AccessibilityPanel from './components/AccessibilityPanel';
 import { SignStreamClient } from './services/signStreamClient';
+import { useAccessibility } from './context/AccessibilityContext';
 
 const WS_URL =
   import.meta.env.VITE_SIGNBRIDGE_WS_URL ?? 'ws://127.0.0.1:8000/ws/sign-stream';
@@ -19,6 +21,8 @@ export default function App() {
   const [streamStatus, setStreamStatus] = useState('idle');
   const [connectionMessage, setConnectionMessage] = useState('Camera not started');
   const [frameCount, setFrameCount] = useState(0);
+
+  const { theme, speakText, language, translateText } = useAccessibility();
 
   const showToast = (message) => {
     setToastMessage(message);
@@ -107,9 +111,15 @@ export default function App() {
       console.error('Unable to start stream:', error);
       setIsAnalyzing(false);
       setStreamStatus('error');
-      setConnectionMessage(error.message || 'Unable to start stream');
+      setCurrentInput(null);
       streamClientRef.current = null;
-      showToast(error.message || 'Unable to start stream');
+
+      let friendlyMsg = error.message || 'Unable to start stream';
+      if (error.name === 'NotAllowedError' || error.message?.toLowerCase().includes('permission denied')) {
+        friendlyMsg = 'Camera permission blocked. Click the lock/camera icon in your browser address bar and set Camera to "Allow", then try again.';
+      }
+      setConnectionMessage(friendlyMsg);
+      showToast(friendlyMsg);
     }
   };
 
@@ -137,7 +147,7 @@ export default function App() {
     setSentenceWords((previous) => previous.slice(0, -1));
   };
 
-  const handleSpeakSentence = (text) => {
+  const handleSpeakSentence = async (text) => {
     if (!text || text.trim() === '') {
       return;
     }
@@ -147,12 +157,15 @@ export default function App() {
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-    window.speechSynthesis.speak(utterance);
-    showToast(`Speaking "${text}"`);
+    // If language is not English, translate first then speak
+    if (language !== 'en') {
+      const translated = await translateText(text, language);
+      speakText(translated, language);
+      showToast(`Speaking translated text in ${language}`);
+    } else {
+      speakText(text, 'en');
+      showToast(`Speaking "${text}"`);
+    }
   };
 
   const handleResetAll = async () => {
@@ -170,7 +183,7 @@ export default function App() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col gap-6">
         {toastMessage && (
-          <div className="fixed bottom-12 right-6 z-50 px-3.5 py-2 bg-zinc-900 text-zinc-100 text-xs font-medium rounded shadow-sm border border-zinc-700 transition-all">
+          <div className="fixed bottom-20 right-24 z-[9998] px-4 py-2.5 bg-zinc-900 text-zinc-100 text-xs font-medium rounded-lg shadow-lg border border-zinc-700 transition-all animate-[panel-enter_0.3s_ease]">
             {toastMessage}
           </div>
         )}
@@ -211,6 +224,8 @@ export default function App() {
         transportLabel="WebSocket"
         endpointLabel={WS_URL}
       />
+
+      <AccessibilityPanel />
     </div>
   );
 }
