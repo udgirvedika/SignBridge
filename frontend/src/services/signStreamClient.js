@@ -27,7 +27,7 @@ export class SignStreamClient {
 
   async start(videoElement) {
     try {
-      this.onStatusChange?.('connecting', 'Requesting webcam access');
+      this.onStatusChange?.('connecting', 'Requesting camera access');
 
       this.stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -41,14 +41,23 @@ export class SignStreamClient {
       videoElement.srcObject = this.stream;
       await videoElement.play();
 
-      this.onStatusChange?.('connecting', 'Opening backend WebSocket');
+      this.onStatusChange?.('connecting', 'Connecting to recognition service');
 
       await new Promise((resolve, reject) => {
         const socket = new WebSocket(WS_URL);
         this.socket = socket;
 
+        // Set a connection timeout of 3.5s so the UI responds quickly if backend is down
+        const connectTimeout = window.setTimeout(() => {
+          if (socket.readyState !== WebSocket.OPEN) {
+            socket.close();
+            reject(new Error('Sign recognition service is offline (ws://127.0.0.1:8000).'));
+          }
+        }, 3500);
+
         socket.onopen = () => {
-          this.onStatusChange?.('streaming', 'Streaming frames to backend');
+          window.clearTimeout(connectTimeout);
+          this.onStatusChange?.('streaming', 'Camera active and translating signs');
           this.startCaptureLoop(videoElement);
           resolve();
         };
@@ -58,21 +67,27 @@ export class SignStreamClient {
             const payload = JSON.parse(event.data);
             this.onPrediction?.(payload);
           } catch {
-            this.onError?.(new Error('Backend returned malformed JSON'));
+            this.onError?.(new Error('Received unexpected data from recognition service'));
           }
         };
 
         socket.onerror = () => {
-          reject(new Error('Unable to reach backend WebSocket'));
+          window.clearTimeout(connectTimeout);
+          reject(new Error('Sign recognition service is offline (ws://127.0.0.1:8000).'));
         };
 
         socket.onclose = () => {
+          window.clearTimeout(connectTimeout);
           if (!this.isStopping) {
-            this.onStatusChange?.('error', 'Backend connection closed');
+            this.onStatusChange?.('error', 'Recognition service disconnected');
           }
         };
       });
     } catch (error) {
+      if (this.stream && error.message?.includes('recognition service')) {
+        this.onStatusChange?.('offline', 'Camera active (Backend offline)');
+        throw error;
+      }
       await this.stop();
       throw error;
     }

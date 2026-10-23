@@ -148,13 +148,15 @@ export default function AccessibilityPanel() {
           </div>
 
           {/* Speech Rate */}
+          {/* Speech Rate */}
           <div className="accessibility-section">
-            <label className="accessibility-section-label">
-              <Volume2 className="accessibility-section-label-icon" />
+            <label className="accessibility-section-label" htmlFor="speech-rate-slider">
+              <Volume2 className="accessibility-section-label-icon" aria-hidden="true" />
               Speech Rate
             </label>
             <div className="accessibility-speech-rate">
               <input
+                id="speech-rate-slider"
                 type="range"
                 min="0.5"
                 max="2"
@@ -162,6 +164,7 @@ export default function AccessibilityPanel() {
                 value={speechRate}
                 onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
                 className="accessibility-range"
+                aria-label="Adjust text-to-speech speed rate"
               />
               <span className="accessibility-rate-value">{speechRate.toFixed(1)}x</span>
             </div>
@@ -171,8 +174,9 @@ export default function AccessibilityPanel() {
                 onClick={() => speakText('Hello! This is a test of the read aloud feature.', language)}
                 className="accessibility-btn accessibility-btn--primary"
                 disabled={isSpeaking}
+                aria-label="Test text-to-speech voice"
               >
-                <Volume2 className="accessibility-btn-icon" />
+                <Volume2 className="accessibility-btn-icon" aria-hidden="true" />
                 Test Voice
               </button>
               {isSpeaking && (
@@ -180,8 +184,9 @@ export default function AccessibilityPanel() {
                   type="button"
                   onClick={stopSpeaking}
                   className="accessibility-btn accessibility-btn--danger"
+                  aria-label="Stop speech synthesis"
                 >
-                  <VolumeX className="accessibility-btn-icon" />
+                  <VolumeX className="accessibility-btn-icon" aria-hidden="true" />
                   Stop
                 </button>
               )}
@@ -190,27 +195,33 @@ export default function AccessibilityPanel() {
 
           {/* Font Size */}
           <div className="accessibility-section">
-            <label className="accessibility-section-label">
-              <Type className="accessibility-section-label-icon" />
+            <span className="accessibility-section-label">
+              <Type className="accessibility-section-label-icon" aria-hidden="true" />
               Font Size
-            </label>
+            </span>
             <div className="accessibility-fontsize">
               <button
                 type="button"
                 onClick={() => setFontSize((s) => Math.max(75, s - 10))}
                 className="accessibility-fontsize-btn"
                 disabled={fontSize <= 75}
+                aria-label="Decrease application font size"
+                title="Decrease font size"
               >
-                <Minus className="accessibility-fontsize-btn-icon" />
+                <Minus className="accessibility-fontsize-btn-icon" aria-hidden="true" />
               </button>
-              <span className="accessibility-fontsize-value">{fontSize}%</span>
+              <span className="accessibility-fontsize-value" aria-live="polite">
+                {fontSize}%
+              </span>
               <button
                 type="button"
                 onClick={() => setFontSize((s) => Math.min(150, s + 10))}
                 className="accessibility-fontsize-btn"
                 disabled={fontSize >= 150}
+                aria-label="Increase application font size"
+                title="Increase font size"
               >
-                <Plus className="accessibility-fontsize-btn-icon" />
+                <Plus className="accessibility-fontsize-btn-icon" aria-hidden="true" />
               </button>
             </div>
           </div>

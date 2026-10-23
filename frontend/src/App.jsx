@@ -13,6 +13,7 @@ const WS_URL =
 
 export default function App() {
   const streamClientRef = useRef(null);
+  const staleTimerRef = useRef(null);
   const [currentInput, setCurrentInput] = useState(null);
   const [prediction, setPrediction] = useState(null);
   const [sentenceWords, setSentenceWords] = useState([]);
@@ -20,18 +21,26 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState(null);
   const [streamStatus, setStreamStatus] = useState('idle');
   const [connectionMessage, setConnectionMessage] = useState('Camera not started');
-  const [frameCount, setFrameCount] = useState(0);
+  const [, setFrameCount] = useState(0);
 
-  const { theme, speakText, language, translateText } = useAccessibility();
+  const { speakText, language, translateText } = useAccessibility();
 
   const showToast = (message) => {
     setToastMessage(message);
     window.clearTimeout(showToast.timeoutId);
-    showToast.timeoutId = window.setTimeout(() => setToastMessage(null), 3000);
+    showToast.timeoutId = window.setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const clearStaleTimer = () => {
+    if (staleTimerRef.current) {
+      window.clearTimeout(staleTimerRef.current);
+      staleTimerRef.current = null;
+    }
   };
 
   useEffect(() => {
     return () => {
+      clearStaleTimer();
       if (streamClientRef.current) {
         streamClientRef.current.stop();
         streamClientRef.current = null;
@@ -40,6 +49,7 @@ export default function App() {
   }, []);
 
   const stopStreaming = async ({ silent = false } = {}) => {
+    clearStaleTimer();
     if (streamClientRef.current) {
       await streamClientRef.current.stop();
       streamClientRef.current = null;
@@ -49,9 +59,10 @@ export default function App() {
     setStreamStatus('idle');
     setConnectionMessage('Camera stopped');
     setFrameCount(0);
+    setPrediction(null);
 
     if (!silent) {
-      showToast('Webcam stream stopped');
+      showToast('Camera stream stopped');
     }
   };
 
@@ -65,6 +76,7 @@ export default function App() {
       await stopStreaming({ silent: true });
     }
 
+    clearStaleTimer();
     setPrediction(null);
     setCurrentInput({
       id: `camera_${Date.now()}`,
@@ -72,7 +84,7 @@ export default function App() {
       type: 'camera',
     });
     setStreamStatus('connecting');
-    setConnectionMessage('Requesting camera and backend connection');
+    setConnectionMessage('Requesting camera permission');
     setIsAnalyzing(true);
     setFrameCount(0);
 
@@ -87,18 +99,25 @@ export default function App() {
       onPrediction: (payload) => {
         setFrameCount((count) => count + 1);
 
-        if (payload.prediction) {
+        if (payload?.prediction) {
+          clearStaleTimer();
           setPrediction({
             label: String(payload.prediction).toUpperCase(),
             confidence: payload.confidence ?? 0,
             timestamp: new Date().toISOString(),
           });
+
+          // Gracefully clear stale prediction after 5 seconds of inactivity
+          staleTimerRef.current = window.setTimeout(() => {
+            setPrediction(null);
+          }, 5000);
         }
       },
       onError: (error) => {
         console.error('Streaming error:', error);
+        clearStaleTimer();
         setPrediction(null);
-        showToast(error.message || 'Streaming failed');
+        showToast(error.message || 'Recognition service encountered an issue');
       },
     });
 
@@ -106,17 +125,27 @@ export default function App() {
 
     try {
       await client.start(videoElement);
-      showToast('Webcam stream connected to backend');
+      showToast('Camera active and translating signs');
     } catch (error) {
       console.error('Unable to start stream:', error);
+      clearStaleTimer();
       setIsAnalyzing(false);
       setStreamStatus('error');
       setCurrentInput(null);
       streamClientRef.current = null;
 
-      let friendlyMsg = error.message || 'Unable to start stream';
-      if (error.name === 'NotAllowedError' || error.message?.toLowerCase().includes('permission denied')) {
-        friendlyMsg = 'Camera permission blocked. Click the lock/camera icon in your browser address bar and set Camera to "Allow", then try again.';
+      let friendlyMsg = 'Unable to start camera. Please verify device permissions.';
+      if (
+        error.name === 'NotAllowedError' ||
+        error.message?.toLowerCase().includes('permission denied')
+      ) {
+        friendlyMsg =
+          'Camera access blocked. Please allow camera permissions in your browser address bar and try again.';
+      } else if (
+        error.name === 'NotFoundError' ||
+        error.message?.toLowerCase().includes('devices not found')
+      ) {
+        friendlyMsg = 'No camera detected. Please connect a webcam and try again.';
       }
       setConnectionMessage(friendlyMsg);
       showToast(friendlyMsg);
@@ -124,6 +153,7 @@ export default function App() {
   };
 
   const handleClearInput = async () => {
+    clearStaleTimer();
     await stopStreaming({ silent: true });
     setCurrentInput(null);
     setPrediction(null);
@@ -141,10 +171,17 @@ export default function App() {
 
   const handleClearSentence = () => {
     setSentenceWords([]);
+    showToast('Sentence cleared');
   };
 
   const handleUndoSentence = () => {
     setSentenceWords((previous) => previous.slice(0, -1));
+  };
+
+  const handleRemoveWord = (indexToRemove) => {
+    setSentenceWords((previous) =>
+      previous.filter((_, idx) => idx !== indexToRemove)
+    );
   };
 
   const handleSpeakSentence = async (text) => {
@@ -153,11 +190,10 @@ export default function App() {
     }
 
     if (!('speechSynthesis' in window)) {
-      showToast('Speech synthesis is not supported in this browser');
+      showToast('Text-to-speech is not supported in this browser');
       return;
     }
 
-    // If language is not English, translate first then speak
     if (language !== 'en') {
       const translated = await translateText(text, language);
       speakText(translated, language);
@@ -168,27 +204,41 @@ export default function App() {
     }
   };
 
+  const handleSetDemoPrediction = (demoPred) => {
+    clearStaleTimer();
+    setPrediction(demoPred);
+    showToast(`Detected gesture: "${demoPred.label}"`);
+    staleTimerRef.current = window.setTimeout(() => {
+      setPrediction(null);
+    }, 7000);
+  };
+
   const handleResetAll = async () => {
+    clearStaleTimer();
     await stopStreaming({ silent: true });
     setCurrentInput(null);
     setPrediction(null);
     setSentenceWords([]);
     setConnectionMessage('Camera not started');
-    showToast('Reset application workspace');
+    showToast('Workspace reset');
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F9F9FA] text-zinc-900 selection:bg-zinc-200">
       <Navbar onReset={handleResetAll} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col gap-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col gap-5">
         {toastMessage && (
-          <div className="fixed bottom-20 right-24 z-[9998] px-4 py-2.5 bg-zinc-900 text-zinc-100 text-xs font-medium rounded-lg shadow-lg border border-zinc-700 transition-all animate-[panel-enter_0.3s_ease]">
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-24 right-6 sm:right-24 z-[9998] px-5 py-3 bg-zinc-900 text-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 text-sm font-semibold rounded-xl shadow-xl border border-zinc-700 dark:border-zinc-300 transition-all animate-[panel-enter_0.3s_ease]"
+          >
             {toastMessage}
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
           <InputSection
             currentInput={currentInput}
             onClearInput={handleClearInput}
@@ -205,8 +255,8 @@ export default function App() {
             onAddToSentence={handleAddToSentence}
             isAnalyzing={isAnalyzing}
             streamStatus={streamStatus}
-            frameCount={frameCount}
             connectionMessage={connectionMessage}
+            onSetDemoPrediction={handleSetDemoPrediction}
           />
         </div>
 
@@ -214,16 +264,12 @@ export default function App() {
           sentenceWords={sentenceWords}
           onClear={handleClearSentence}
           onUndo={handleUndoSentence}
+          onRemoveWord={handleRemoveWord}
           onSpeak={handleSpeakSentence}
         />
       </main>
 
-      <StatusBar
-        modelStatus={streamStatus}
-        totalClasses="Predict stub active"
-        transportLabel="WebSocket"
-        endpointLabel={WS_URL}
-      />
+      <StatusBar modelStatus={streamStatus} />
 
       <AccessibilityPanel />
     </div>
