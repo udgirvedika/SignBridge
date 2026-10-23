@@ -20,6 +20,7 @@ languages, and read aloud in the browser.
 ```
 
 ---
+<img width="1512" height="716" alt="image" src="https://github.com/user-attachments/assets/eb180f3c-1c18-4998-be87-8a2ca2923f13" />
 
 ## Features
 
